@@ -1035,10 +1035,11 @@ void lcd_status_screen()                          // NOT static due to using ins
 	else
 		lcd_draw_update = 1;
 
-
 	if (lcd_draw_update)
 	{
 		ReInitLCD++;
+		
+		#if 0
 		if (ReInitLCD == 30)
 		{
 			lcd_refresh(); // to maybe revive the LCD if static electricity killed it.
@@ -1049,6 +1050,7 @@ void lcd_status_screen()                          // NOT static due to using ins
 			if ((ReInitLCD % 10) == 0)
 				lcd_refresh_noclear(); //to maybe revive the LCD if static electricity killed it.
 		}
+    #endif
 
 		lcdui_print_status_screen();
 
