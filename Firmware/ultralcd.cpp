@@ -5050,7 +5050,7 @@ void lcd_wizard(WizState state)
 			break;
 		case S::Xyz:
 			lcd_show_fullscreen_message_and_wait_P(_i("I will run xyz calibration now. It will take approx. 12 mins."));////MSG_WIZARD_XYZ_CAL c=20 r=8
-			wizard_event = gcode_M45(false, 0);
+			wizard_event = gcode_M45(false, 30);
 			if (wizard_event) state = S::IsFil;
 			else end = true;
 			break;

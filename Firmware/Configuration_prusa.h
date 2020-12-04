@@ -44,8 +44,8 @@
 // Steps per unit {X,Y,Z,E}
 //#define DEFAULT_AXIS_STEPS_PER_UNIT   {100,100,3200/8,140}
 //#define DEFAULT_AXIS_STEPS_PER_UNIT   {100,100,3200/8,280}
-#define DEFAULT_AXIS_STEPS_PER_UNIT   {100,100,3200/8,576.65}
-
+//#define DEFAULT_AXIS_STEPS_PER_UNIT   {100,100,3200/8,576.65}
+#define DEFAULT_AXIS_STEPS_PER_UNIT   {400,400,3200/8,560}
 // Endstop inverting
 #define X_MIN_ENDSTOP_INVERTING 0 // set to 1 to invert the logic of the endstop.
 #define Y_MIN_ENDSTOP_INVERTING 0 // set to 1 to invert the logic of the endstop.
@@ -82,7 +82,7 @@
 #define Z_PAUSE_LIFT 20
 
 #define NUM_AXIS 4 // The axis order in all axis related arrays is X, Y, Z, E
-#define HOMING_FEEDRATE {3000, 3000, 800, 0}  // set the homing speeds (mm/min) // 3000 is also valid for stallGuard homing. Valid range: 2200 - 3000
+#define HOMING_FEEDRATE {6000, 6000, 2000, 0}  // set the homing speeds (mm/min) // 3000 is also valid for stallGuard homing. Valid range: 2200 - 3000
 
 //#define DEFAULT_Y_OFFSET    4.f // Default distance of Y_MIN_POS point from endstop, when the printer is not calibrated.
 /**
@@ -94,7 +94,7 @@
  */
 #define SHEET_PRINT_ZERO_REF_Y -2.f
 
-#define DEFAULT_MAX_FEEDRATE                {250, 250, 12, 120}      // (mm/sec)   max feedrate (M203)
+#define DEFAULT_MAX_FEEDRATE                {250, 250, 20, 120}      // (mm/sec)   max feedrate (M203)
 #define DEFAULT_MAX_FEEDRATE_SILENT         {100, 100, 12, 120}      // (mm/sec)   max feedrate (M203), silent mode
 
 #define DEFAULT_MAX_ACCELERATION            {3000, 3000, 200, 5000}  // (mm/sec^2) max acceleration (M201)
@@ -124,7 +124,7 @@
 #define CRASHDET_COUNTER_MAX 3 
 
 // New XYZ calibration
-#define NEW_XYZCAL
+//#define NEW_XYZCAL
 
 // Watchdog support
 #define WATCHDOG
@@ -208,7 +208,7 @@
 
 #define TMC2130_FCLK 12000000       // fclk = 12MHz
 
-#define TMC2130_USTEPS_XY   16        // microstep resolution for XY axes
+#define TMC2130_USTEPS_XY   32        // microstep resolution for XY axes
 #define TMC2130_USTEPS_Z    16        // microstep resolution for Z axis
 #define TMC2130_USTEPS_E    32        // microstep resolution for E axis
 #define TMC2130_INTPOL_XY   1         // extrapolate 256 for XY axes
@@ -265,8 +265,8 @@
 #define TMC2130_SG_THRS_HOME {3, 3, TMC2130_SG_THRS_Z, TMC2130_SG_THRS_E}
 
 //new settings is possible for vsense = 1, running current value > 31 set vsense to zero and shift both currents by 1 bit right (Z axis only)
-#define TMC2130_CURRENTS_H {16, 20, 35, 31}  // default holding currents for all axes
-#define TMC2130_CURRENTS_R {16, 20, 35, 31}  // default running currents for all axes
+#define TMC2130_CURRENTS_H {20, 20, 35, 31}  // default holding currents for all axes
+#define TMC2130_CURRENTS_R {20, 20, 35, 31}  // default running currents for all axes
 #define TMC2130_CURRENTS_R_HOME {8, 10, 20, 18}  // homing running currents for all axes
 // #define TMC2130_UNLOAD_CURRENT_R 12			 // lower current for M600 to protect filament sensor - Unused
 
@@ -308,7 +308,7 @@
 #endif
 #define HEATER_1_MAXTEMP 305
 #define HEATER_2_MAXTEMP 305
-#define BED_MAXTEMP 150
+#define BED_MAXTEMP 125
 #define AMBIENT_MAXTEMP 100
 
 #if defined(E3D_PT100_EXTRUDER_WITH_AMP) || defined(E3D_PT100_EXTRUDER_NO_AMP)
@@ -468,7 +468,7 @@
 #ifdef PIDTEMPBED
 //120v 250W silicone heater into 4mm borosilicate (MendelMax 1.5+)
 //from FOPDT model - kp=.39 Tp=405 Tdead=66, Tc set to 79.2, aggressive factor of .15 (vs .1, 1, 10)
-#if defined(E3D_PT100_EXTRUDER_WITH_AMP) || defined(E3D_PT100_BED_NO_AMP)
+#if defined(E3D_PT100_BED_WITH_AMP) || defined(E3D_PT100_BED_NO_AMP)
 // Define PID constants for extruder with PT100
 #define  DEFAULT_bedKp 21.70
 #define  DEFAULT_bedKi 1.60
@@ -508,7 +508,7 @@
 #define PC_PREHEAT_HPB_TEMP 110
 
 #define ABS_PREHEAT_HOTEND_TEMP 250
-#define ABS_PREHEAT_HPB_TEMP 122
+#define ABS_PREHEAT_HPB_TEMP 120
 
 #define HIPS_PREHEAT_HOTEND_TEMP 220
 #define HIPS_PREHEAT_HPB_TEMP 100
@@ -640,7 +640,7 @@
 
 #define M600_TIMEOUT 600  //seconds
 
-//#define SUPPORT_VERBOSITY
+#define SUPPORT_VERBOSITY
 
 #define MMU_REQUIRED_FW_BUILDNR 83
 #define MMU_HWRESET

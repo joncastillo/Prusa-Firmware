@@ -6,7 +6,7 @@
 #define e_SOUND_MODE_NULL 0xFF
 typedef enum
      {e_SOUND_MODE_LOUD,e_SOUND_MODE_ONCE,e_SOUND_MODE_SILENT,e_SOUND_MODE_BLIND} eSOUND_MODE;
-#define e_SOUND_MODE_DEFAULT e_SOUND_MODE_LOUD
+#define e_SOUND_MODE_DEFAULT e_SOUND_MODE_SILENT
 
 typedef enum
      {e_SOUND_TYPE_ButtonEcho,e_SOUND_TYPE_EncoderEcho,e_SOUND_TYPE_StandardPrompt,e_SOUND_TYPE_StandardConfirm,e_SOUND_TYPE_StandardWarning,e_SOUND_TYPE_StandardAlert,e_SOUND_TYPE_EncoderMove,e_SOUND_TYPE_BlindAlert} eSOUND_TYPE;
