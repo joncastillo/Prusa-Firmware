@@ -275,34 +275,27 @@ int8_t xyzcal_meassure_pinda_hysterezis(int16_t min_z, int16_t max_z, uint16_t d
 }
 #endif //XYZCAL_MEASSURE_PINDA_HYSTEREZIS
 
-typedef enum  {
-    INDEX_X,
-    INDEX_Y,
-    INDEX_Z,
-    INDEX_E
-} Index_Axis_In_Prusa_Defined_Tables_e ;
-
 void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max_z, uint16_t delay_us, uint8_t* pixels)
 {
-        uint8_t stepperMotorCorrectionFactorX = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_X] / 100;
-        uint8_t stepperMotorCorrectionFactorY = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_Y] / 100;
-        uint16_t stepperMotorCorrectionFactorDelay = (X<Y) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
-            
-	DBG(_n("xyzcal_scan_pixels_32x32 cx=%d cy=%d min_z=%d max_z=%d\n"), cx, cy, min_z, max_z);
+        int8_t stepperMotorCorrectionFactorX = cs.axis_steps_per_unit[X_AXIS]/100;
+        int8_t stepperMotorCorrectionFactorY = cs.axis_steps_per_unit[Y_AXIS]/100;
+        int8_t stepperMotorCorrectionFactorDelay = (stepperMotorCorrectionFactorX<stepperMotorCorrectionFactorY) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
+	DBG(_n("xyzcal_scan_pixels_32x32 stepperMotorCorrectionFactorX=%d stepperMotorCorrectionFactorY=%d stepperMotorCorrectionFactorDelay=%d\n"), stepperMotorCorrectionFactorX, stepperMotorCorrectionFactorY, stepperMotorCorrectionFactorDelay);
 	int16_t z = (int16_t)count_position[2];
-	xyzcal_lineXYZ_to(cx, cy, z, delay_us / 2, 0);
+	xyzcal_lineXYZ_to(cx, cy, z, (2 * delay_us) / stepperMotorCorrectionFactorDelay, 0);
 	for (uint8_t r = 0; r < 32; r++)
 	{
 //		int8_t _pinda = _PINDA;
-                int8_t new_x_coordinate = (r&1) ? cx+(1024 * stepperMotorCorrectionFactorX) : cx- (1024 * stepperMotorCorrectionFactorX);
-                int8_t new_y_coordinate = cy - (1024 * stepperMotorCorrectionFactorY) + r * 64 * stepperMotorCorrectionFactorY;
+                int16_t new_x_coordinate = (r&1) ? cx+(1024 * stepperMotorCorrectionFactorX) : cx-(1024 * stepperMotorCorrectionFactorX);
+                int16_t new_y_coordinate = cy - (1024 * stepperMotorCorrectionFactorY) + r * 64 * stepperMotorCorrectionFactorY;
                 
-                xyzcal_lineXYZ_to(new_x_coordinate, new_y_coordinate, z, (delay_us/2) / stepperMotorCorrectionFactorDelay, 0);
+                DBG(_n("%d xyzcal_scan_pixels_32x32 cx=%d cy=%d min_z=%d max_z=%d\n"), r, cx, cy, min_z, max_z);
+                DBG(_n("%d xyzcal_scan_pixels_32x32 new_x_coordinate=%d new_y_coordinate=%d min_z=%d max_z=%d\n"), r, new_x_coordinate, new_y_coordinate, min_z, max_z);
+                xyzcal_lineXYZ_to(new_x_coordinate, new_y_coordinate, z, (2 * delay_us) / stepperMotorCorrectionFactorDelay, 0);
                 xyzcal_lineXYZ_to(_X, _Y, min_z, delay_us, 1);
 		xyzcal_lineXYZ_to(_X, _Y, max_z, delay_us, -1);
 		z = (int16_t)count_position[2];
 		sm4_set_dir(X_AXIS, (r&1)?1:0);
-
 		for (uint8_t c = 0; c < 32; c++)
 		{
 			uint16_t sum = 0;
@@ -316,7 +309,13 @@ void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max
 				if (pix > 255) pix = 255;
 				sum += pix;
 				z_sum += z;
-
+//				if (_pinda != pinda)
+//				{
+//					if (pinda)
+//						DBG(_n("!1 x=%d z=%d\n"), c*64+i, z+23);
+//					else
+//						DBG(_n("!0 x=%d z=%d\n"), c*64+i, z-24);
+//				}
 				sm4_set_dir(Z_AXIS, !pinda);
 				if (!pinda)
 				{
@@ -334,9 +333,11 @@ void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max
 						z++;
 					}
 				}
-                                
-                                for (uint8_t x_steps = 0 ; x_steps < stepperMotorCorrectionFactorX ; x_steps++  ) {
+                                count_position[2] = z;
+
+                                for (uint8_t x_steps = 0 ; x_steps<stepperMotorCorrectionFactorX ; x_steps++) {
                                     sm4_do_step(X_AXIS_MASK);
+                                    count_position[X_AXIS] += (r&1) ? -1 : 1;
                                     delayMicroseconds(600 / stepperMotorCorrectionFactorX);
                                 }
 //				_pinda = pinda;
@@ -352,10 +353,6 @@ void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max
 				z_sum >>= 6; //div 64
 			if (pixels) pixels[((uint16_t)r<<5) + ((r&1)?(31-c):c)] = sum;
 //			DBG(_n("c=%d r=%d l=%d z=%d\n"), c, r, sum, z_sum);
-                        
-                        count_position[INDEX_X] += (r&1) ? ( -(64 * stepperMotorCorrectionFactorX) : (64 * stepperMotorCorrectionFactorX) );
-			
-                        count_position[2] = z;
 		}
 		if (pixels)
 			for (uint8_t c = 0; c < 32; c++)
@@ -527,9 +524,9 @@ int8_t xyzcal_find_point_center2(uint16_t delay_us)
 
 int8_t xyzcal_find_point_center2A(int16_t x0, int16_t y0, int16_t z0, uint16_t delay_us){
 
-        uint8_t stepperMotorCorrectionFactorX = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_X] / 100;
-        uint8_t stepperMotorCorrectionFactorY = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_Y] / 100;
-        uint16_t stepperMotorCorrectionFactorDelay = (X<Y) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
+        int8_t stepperMotorCorrectionFactorX = cs.axis_steps_per_unit[X_AXIS] / 100;
+        int8_t stepperMotorCorrectionFactorY = cs.axis_steps_per_unit[Y_AXIS] / 100;
+        int8_t stepperMotorCorrectionFactorDelay = (stepperMotorCorrectionFactorX<stepperMotorCorrectionFactorY) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
 
         int16_t  adjustedMaxDiameterX = MAX_DIAMETR * stepperMotorCorrectionFactorX;
         int16_t  adjustedMaxDiameterY = MAX_DIAMETR * stepperMotorCorrectionFactorY;
@@ -630,9 +627,9 @@ int8_t xyzcal_find_point_center2A(int16_t x0, int16_t y0, int16_t z0, uint16_t d
 #ifdef XYZCAL_FIND_POINT_CENTER
 int8_t xyzcal_find_point_center(int16_t x0, int16_t y0, int16_t z0, int16_t min_z, int16_t max_z, uint16_t delay_us, uint8_t turns)
 {
-	uint8_t stepperMotorCorrectionFactorX = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_X] / 100;
-	uint8_t stepperMotorCorrectionFactorY = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_Y] / 100;
-	uint16_t stepperMotorCorrectionFactorDelay = (X<Y) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
+	int8_t stepperMotorCorrectionFactorX = cs.axis_steps_per_unit[X_AXIS] / 100;
+	int8_t stepperMotorCorrectionFactorY = cs.axis_steps_per_unit[Y_AXIS] / 100;
+	int8_t stepperMotorCorrectionFactorDelay = (stepperMotorCorrectionFactorX<stepperMotorCorrectionFactorY) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
 
 	uint8_t n;
 	uint16_t ad;
@@ -746,12 +743,12 @@ bool xyzcal_searchZ(void)
 {
 	DBG(_n("xyzcal_searchZ x=%ld y=%ld z=%ld\n"), count_position[X_AXIS], count_position[Y_AXIS], count_position[Z_AXIS]);
         
-        uint8_t stepperMotorCorrectionFactorX = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_X] / 100;
-        uint8_t stepperMotorCorrectionFactorY = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_Y] / 100;
-        uint8_t stepperMotorCorrectionFactorXY = (X<Y) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
-        uint16_t stepperMotorCorrectionFactorDelay = (X<Y) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
+        int8_t stepperMotorCorrectionFactorX = cs.axis_steps_per_unit[X_AXIS] / 100;
+        int8_t stepperMotorCorrectionFactorY = cs.axis_steps_per_unit[Y_AXIS] / 100;
+        int8_t stepperMotorCorrectionFactorXY = (stepperMotorCorrectionFactorX<stepperMotorCorrectionFactorY) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
+        int8_t stepperMotorCorrectionFactorDelay = (stepperMotorCorrectionFactorX<stepperMotorCorrectionFactorY) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
 
-	int16_t x0 = _X;
+	int16_t x0 = _X;                                                                                                                         
 	int16_t y0 = _Y;
 	int16_t z0 = _Z;
 //	int16_t min_z = -6000;
@@ -820,9 +817,9 @@ bool xyzcal_scan_and_process(void)
 
 bool xyzcal_find_bed_induction_sensor_point_xy(void)
 {
-        uint8_t stepperMotorCorrectionFactorX = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_X] / 100;
-        uint8_t stepperMotorCorrectionFactorY = DEFAULT_AXIS_STEPS_PER_UNIT[Index_Axis_Steps_Per_Unit_e.INDEX_Y] / 100;
-        uint16_t stepperMotorCorrectionFactorDelay = (X<Y) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
+        int8_t stepperMotorCorrectionFactorX = cs.axis_steps_per_unit[X_AXIS] / 100;
+        int8_t stepperMotorCorrectionFactorY = cs.axis_steps_per_unit[Y_AXIS] / 100;
+        int8_t stepperMotorCorrectionFactorDelay = (stepperMotorCorrectionFactorX<stepperMotorCorrectionFactorY) ? ( stepperMotorCorrectionFactorX ) : ( stepperMotorCorrectionFactorY );
 
 	DBG(_n("xyzcal_find_bed_induction_sensor_point_xy x=%ld y=%ld z=%ld\n"), count_position[X_AXIS], count_position[Y_AXIS], count_position[Z_AXIS]);
 	bool ret = false;
@@ -831,8 +828,8 @@ bool xyzcal_find_bed_induction_sensor_point_xy(void)
 	int16_t y = _Y;
 	int16_t z = _Z;
 	uint8_t point = xyzcal_xycoords2point(x, y);
-	x = pgm_read_word((uint16_t*)(xyzcal_point_xcoords * stepperMotorCorrectionFactorX + point));
-	y = pgm_read_word((uint16_t*)(xyzcal_point_ycoords * stepperMotorCorrectionFactorY + point));
+	x = pgm_read_word((uint16_t*)(xyzcal_point_xcoords + point)) * stepperMotorCorrectionFactorX;
+	y = pgm_read_word((uint16_t*)(xyzcal_point_ycoords + point)) * stepperMotorCorrectionFactorY;
 	DBG(_n("point=%d x=%d y=%d z=%d\n"), point, x, y, z);
 	xyzcal_meassure_enter();
 	xyzcal_lineXYZ_to(x, y, z, 200, 0);
@@ -842,13 +839,13 @@ bool xyzcal_find_bed_induction_sensor_point_xy(void)
 		xyzcal_lineXYZ_to(x, y, z, 200, 0);
 		if (xyzcal_scan_and_process())
 		{
-			if (xyzcal_find_point_center2(500 / stepperMotorCorrectionFactorDelay))
+			if (xyzcal_find_point_center2(500))
 			{
 				uint32_t x_avg = 0;
 				uint32_t y_avg = 0;
 				uint8_t n; for (n = 0; n < 4; n++)
 				{
-					if (!xyzcal_find_point_center2(1000 / stepperMotorCorrectionFactorDelay)) break;
+					if (!xyzcal_find_point_center2(1000)) break;
 					x_avg += _X;
 					y_avg += _Y;	
 				}
