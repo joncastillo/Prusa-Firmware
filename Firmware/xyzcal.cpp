@@ -1,4 +1,4 @@
-//xyzcal.cpp - xyz calibration with image processing
+//jonxyzcal.cpp - xyz calibration with image processing
 
 #include "Configuration_prusa.h"
 #ifdef NEW_XYZCAL
@@ -83,14 +83,14 @@ uint8_t check_pinda_1()
 	return _PINDA?1:0;
 }
 
-uint8_t xyzcal_dm = 0;
+uint8_t xyzcal_direction_bits = 0;
 
 void xyzcal_update_pos(uint16_t dx, uint16_t dy, uint16_t dz, uint16_t)
 {
 //	DBG(_n("xyzcal_update_pos dx=%d dy=%d dz=%d dir=%02x\n"), dx, dy, dz, xyzcal_dm);
-	if (xyzcal_dm&1) count_position[0] -= dx; else count_position[0] += dx;
-	if (xyzcal_dm&2) count_position[1] -= dy; else count_position[1] += dy;
-	if (xyzcal_dm&4) count_position[2] -= dz; else count_position[2] += dz;
+	if (xyzcal_direction_bits&1) count_position[0] -= dx; else count_position[0] += dx;
+	if (xyzcal_direction_bits&2) count_position[1] -= dy; else count_position[1] += dy;
+	if (xyzcal_direction_bits&4) count_position[2] -= dz; else count_position[2] += dz;
 //	DBG(_n(" after xyzcal_update_pos x=%ld y=%ld z=%ld\n"), count_position[0], count_position[1], count_position[2]);
 }
 
@@ -148,8 +148,8 @@ bool xyzcal_lineXYZ_to(int16_t x, int16_t y, int16_t z, uint16_t delay_us, int8_
 	x -= (int16_t)count_position[0];
 	y -= (int16_t)count_position[1];
 	z -= (int16_t)count_position[2];
-	xyzcal_dm = ((x<0)?1:0) | ((y<0)?2:0) | ((z<0)?4:0);
-	sm4_set_dir_bits(xyzcal_dm);
+	xyzcal_direction_bits = ((x<0)?1:0) | ((y<0)?2:0) | ((z<0)?4:0);
+	sm4_set_dir_bits(xyzcal_direction_bits);
 	sm4_stop_cb = check_pinda?((check_pinda<0)?check_pinda_0:check_pinda_1):0;
 	xyzcal_sm4_delay = delay_us;
 //	uint32_t u = _micros();
@@ -279,18 +279,29 @@ int8_t xyzcal_meassure_pinda_hysterezis(int16_t min_z, int16_t max_z, uint16_t d
 void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max_z, uint16_t delay_us, uint8_t* pixels)
 {
 	DBG(_n("xyzcal_scan_pixels_32x32 cx=%d cy=%d min_z=%d max_z=%d\n"), cx, cy, min_z, max_z);
-//	xyzcal_lineXYZ_to(cx - 1024, cy - 1024, max_z, 2*delay_us, 0);
-//	xyzcal_lineXYZ_to(cx, cy, max_z, delay_us, 0);
 	int16_t z = (int16_t)count_position[2];
-	xyzcal_lineXYZ_to(cx, cy, z, 2*delay_us, 0);
+	xyzcal_lineXYZ_to(cx, cy, z, delay_us / 2, 0);
 	for (uint8_t r = 0; r < 32; r++)
 	{
 //		int8_t _pinda = _PINDA;
-		xyzcal_lineXYZ_to((r&1)?(cx+1024):(cx-1024), cy - 1024 + r*64, z, 2*delay_us, 0);
-		xyzcal_lineXYZ_to(_X, _Y, min_z, delay_us, 1);
+
+            #if 0
+                // always in forward direction
+                DBG(_n("%d bfr xyzcal_scan_pixels_32x32 cx=%d cy=%d min_z=%d max_z=%d _X=%d _Y=%d\n"), r, cx, cy, min_z, max_z,_X,_Y);
+                xyzcal_lineXYZ_to(cx-2048, cy - 2048 + r*128, z, delay_us, 0);
+                xyzcal_lineXYZ_to(_X, _Y, min_z, delay_us, 1);
+		xyzcal_lineXYZ_to(_X, _Y, max_z, delay_us, -1);
+                DBG(_n("%d aft xyzcal_scan_pixels_32x32 cx=%d cy=%d min_z=%d max_z=%d _X=%d _Y=%d\n"), r, cx, cy, min_z, max_z,_X,_Y);
+		z = (int16_t)count_position[2];
+		// sm4_set_dir(X_AXIS, (r&1)?1:0);
+                sm4_set_dir(X_AXIS, 0);
+            #else
+                xyzcal_lineXYZ_to((r&1)?cx+4096:cx-4096, cy - 4096 + r*256, z, delay_us/2, 0);
+                xyzcal_lineXYZ_to(_X, _Y, min_z, delay_us, 1);
 		xyzcal_lineXYZ_to(_X, _Y, max_z, delay_us, -1);
 		z = (int16_t)count_position[2];
 		sm4_set_dir(X_AXIS, (r&1)?1:0);
+            #endif
 		for (uint8_t c = 0; c < 32; c++)
 		{
 			uint16_t sum = 0;
@@ -304,13 +315,7 @@ void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max
 				if (pix > 255) pix = 255;
 				sum += pix;
 				z_sum += z;
-//				if (_pinda != pinda)
-//				{
-//					if (pinda)
-//						DBG(_n("!1 x=%d z=%d\n"), c*64+i, z+23);
-//					else
-//						DBG(_n("!0 x=%d z=%d\n"), c*64+i, z-24);
-//				}
+
 				sm4_set_dir(Z_AXIS, !pinda);
 				if (!pinda)
 				{
@@ -329,7 +334,13 @@ void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max
 					}
 				}
 				sm4_do_step(X_AXIS_MASK);
-				delayMicroseconds(600);
+				delayMicroseconds(150);
+				sm4_do_step(X_AXIS_MASK);
+				delayMicroseconds(150);
+				sm4_do_step(X_AXIS_MASK);
+				delayMicroseconds(150);
+				sm4_do_step(X_AXIS_MASK);
+				delayMicroseconds(150);
 //				_pinda = pinda;
 			}
 			sum >>= 6; //div 64
@@ -343,8 +354,14 @@ void xyzcal_scan_pixels_32x32(int16_t cx, int16_t cy, int16_t min_z, int16_t max
 				z_sum >>= 6; //div 64
 			if (pixels) pixels[((uint16_t)r<<5) + ((r&1)?(31-c):c)] = sum;
 //			DBG(_n("c=%d r=%d l=%d z=%d\n"), c, r, sum, z_sum);
-			count_position[0] += (r&1)?-64:64;
-			count_position[2] = z;
+                        
+                  #if 0
+                        count_position[0] += 128;
+                  #else 
+			count_position[0] += (r&1)?-256:256;
+                  #endif
+			
+                        count_position[2] = z;
 		}
 		if (pixels)
 			for (uint8_t c = 0; c < 32; c++)
@@ -476,7 +493,7 @@ int16_t xyzcal_find_pattern_12x12_in_32x32(uint8_t* pixels, uint16_t* pattern, u
 	return max_match;
 }
 
-#define MAX_DIAMETR 600
+#define MAX_DIAMETR 2400
 #define XYZCAL_FIND_CENTER_DIAGONAL
 int8_t xyzcal_find_point_center2A(int16_t x0, int16_t y0, int16_t z0, uint16_t delay_us);
 int8_t xyzcal_find_point_center2(uint16_t delay_us)
@@ -538,7 +555,7 @@ int8_t xyzcal_find_point_center2A(int16_t x0, int16_t y0, int16_t z0, uint16_t d
 		float ar = (float)ad * _PI / 180;
 		int16_t x = x0 + MAX_DIAMETR * cos(ar);
 		int16_t y = y0 + MAX_DIAMETR * sin(ar);
-		if (!xyzcal_lineXYZ_to(x, y, z0, delay_us, -1))
+		if (!xyzcal_lineXYZ_to(x, y, z0, delay_us/4, -1))
 		{
 			printf_P(PSTR("ERROR ad=%d\n"), ad);
 			ret = 0;
@@ -546,7 +563,7 @@ int8_t xyzcal_find_point_center2A(int16_t x0, int16_t y0, int16_t z0, uint16_t d
 		}
 		xc += _X;
 		yc += _Y;
-		xyzcal_lineXYZ_to(x0, y0, z0, delay_us, 0);
+		xyzcal_lineXYZ_to(x0, y0, z0, delay_us/4, 0);
 	}
 	if (ret)
 	{
@@ -706,8 +723,8 @@ uint8_t xyzcal_xycoords2point(int16_t x, int16_t y)
 
 //MK3
 #if ((MOTHERBOARD == BOARD_EINSY_1_0a))
-const int16_t xyzcal_point_xcoords[4] PROGMEM = {1200, 22000, 22000, 1200};
-const int16_t xyzcal_point_ycoords[4] PROGMEM = {600, 600, 19800, 19800};
+const int16_t xyzcal_point_xcoords[4] PROGMEM = {4800, 88000, 88000, 4800};
+const int16_t xyzcal_point_ycoords[4] PROGMEM = {2400, 2400, 79200, 79200};
 #endif //((MOTHERBOARD == BOARD_EINSY_1_0a))
 
 //MK2.5
@@ -730,7 +747,7 @@ bool xyzcal_searchZ(void)
 	while (z > -2300) //-6mm + 0.25mm
 	{
 		uint16_t ad = 0;
-		if (xyzcal_spiral8(x0, y0, z, 100, 900, 320, 1, &ad)) //dz=100 radius=900 delay=400
+		if (xyzcal_spiral8(x0, y0, z, 100, 900 * 4 , 320 /4, 1, &ad)) //dz=100 radius=900 delay=400
 		{
 			int16_t x_on = _X;
 			int16_t y_on = _Y;
@@ -801,7 +818,7 @@ bool xyzcal_find_bed_induction_sensor_point_xy(void)
 	y = pgm_read_word((uint16_t*)(xyzcal_point_ycoords + point));
 	DBG(_n("point=%d x=%d y=%d z=%d\n"), point, x, y, z);
 	xyzcal_meassure_enter();
-	xyzcal_lineXYZ_to(x, y, z, 200, 0);
+  xyzcal_lineXYZ_to(x, y, z, 200, 0);
 	if (xyzcal_searchZ())
 	{
 		int16_t z = _Z;
