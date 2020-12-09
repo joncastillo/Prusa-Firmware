@@ -392,26 +392,7 @@ void tmc2130_check_overtemp()
 {
 	static uint32_t checktime = 0;
 
-        if (_millis() - checktime > 5000 )
-	{
-          for (uint_least8_t i = 0; i < 4; i++)
-          {
-            uint32_t drv_status = 0;
-            skip_debug_msg = true;
-            tmc2130_rd(i, TMC2130_REG_DRV_STATUS, &drv_status);
-
-            if (drv_status & ((uint32_t)1 << 26))
-            { // BIT 26 - overtemperature pre-warning
-              SERIAL_ERRORRPGM(MSG_TMC_PRE_OVERTEMP);
-              SERIAL_ECHOLN(i);
-              lcd_set_cursor(0, 2); lcd_puts_P(_T("OVERTEMP IMMINENT @ " + i));
-
-              Sound_MakeSound(e_SOUND_TYPE_StandardWarning);
-            }
-          }
-        }
-        
-        if (_millis() - checktime > 1000 )
+	if (_millis() - checktime > 1000 )
 	{
 		for (uint_least8_t i = 0; i < 4; i++)
 		{
@@ -419,10 +400,21 @@ void tmc2130_check_overtemp()
 			skip_debug_msg = true;
 			tmc2130_rd(i, TMC2130_REG_DRV_STATUS, &drv_status);
 
+			bool flagPreWarningOvertemp = drv_status & ((uint32_t)1 << 26);
+			bool flagOvertemp = drv_status & ((uint32_t)1 << 25);
 	
-                        if (drv_status & ((uint32_t)1 << 25))
+			if (flagPreWarningOvertemp) {
+                                char message[20];
+                                sprintf(message, "%s @%d", MSG_TMC_PRE_OVERTEMP, i);
+				lcd_set_cursor(0, 2); lcd_puts_P(_T(message));
+				Sound_MakeSound(e_SOUND_TYPE_ButtonEcho);
+			}
+                          
+			if (drv_status & ((uint32_t)1 << 25))
 			{ // BIT 25 - overtemperature flag ~135C (+-20C)
-				SERIAL_ERRORRPGM(MSG_TMC_OVERTEMP);
+                                char message[20];
+                                sprintf(message, "%s @%d", MSG_TMC_OVERTEMP, i);
+				SERIAL_ERRORRPGM(message);
 				SERIAL_ECHOLN(i);
 				for (uint_least8_t j = 0; j < 4; j++)
 					tmc2130_wr(j, TMC2130_REG_CHOPCONF, 0x00010000);
