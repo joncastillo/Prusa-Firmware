@@ -402,23 +402,26 @@ void tmc2130_check_overtemp()
 
 			bool flagPreWarningOvertemp = drv_status & ((uint32_t)1 << 26);
 			bool flagOvertemp = drv_status & ((uint32_t)1 << 25);
-	
+
 			if (flagPreWarningOvertemp) {
-                                char message[20];
-                                sprintf(message, "%s @%d", MSG_TMC_PRE_OVERTEMP, i);
-				lcd_set_cursor(0, 2); lcd_puts_P(_T(message));
-				Sound_MakeSound(e_SOUND_TYPE_ButtonEcho);
+                                char message[3];
+                                lcd_puts_at_P(0,3,_T(MSG_TMC_PRE_OVERTEMP));
+                                lcd_puts_at_P(17, 3, _i("@"));
+                                lcd_set_cursor(18, 3);
+                                lcd_print(i+0x30);
+                                
+                                Sound_MakeSound(e_SOUND_TYPE_ButtonEcho);
+                                if (feedmultiply > 40)
+                                    feedmultiply -= 1;
 			}
-                          
+
 			if (drv_status & ((uint32_t)1 << 25))
 			{ // BIT 25 - overtemperature flag ~135C (+-20C)
-                                char message[20];
-                                sprintf(message, "%s @%d", MSG_TMC_OVERTEMP, i);
-				SERIAL_ERRORRPGM(message);
+				SERIAL_ERRORRPGM(MSG_TMC_OVERTEMP);
 				SERIAL_ECHOLN(i);
 				for (uint_least8_t j = 0; j < 4; j++)
 					tmc2130_wr(j, TMC2130_REG_CHOPCONF, 0x00010000);
-				kill(MSG_TMC_OVERTEMP);
+                                        kill(MSG_TMC_OVERTEMP);
 			}
 
 		}
